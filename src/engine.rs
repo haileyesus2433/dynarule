@@ -52,8 +52,34 @@ impl RuleEngine {
                     .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
                 Ok(input_num > cond_num)
             }
+            "<" => {
+                let input_num = input_value.as_f64().ok_or_else(|| {
+                    RuleEngineError::EvaluationError("Value must be a number".to_string())
+                })?;
+                let cond_num = value
+                    .parse::<f64>()
+                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                Ok(input_num < cond_num)
+            }
+            ">=" => {
+                let input_num = input_value.as_f64().ok_or_else(|| {
+                    RuleEngineError::EvaluationError("Value must be a number".to_string())
+                })?;
+                let cond_num = value
+                    .parse::<f64>()
+                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                Ok(input_num >= cond_num)
+            }
+            "<=" => {
+                let input_num = input_value.as_f64().ok_or_else(|| {
+                    RuleEngineError::EvaluationError("Value must be a number".to_string())
+                })?;
+                let cond_num = value
+                    .parse::<f64>()
+                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                Ok(input_num <= cond_num)
+            }
             "=" => Ok(input_value == &serde_json::Value::String(value.to_string())),
-            // Add more operators (<, >=, etc.) as needed
             _ => Err(RuleEngineError::EvaluationError(format!(
                 "Unsupported operator '{}'",
                 operator

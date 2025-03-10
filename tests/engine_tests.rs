@@ -74,3 +74,24 @@ fn test_missing_input_key() {
         Err(dynarule::RuleEngineError::EvaluationError(_))
     ));
 }
+
+#[test]
+fn test_basic_evaluation_less_than() {
+    let rule = Rule {
+        condition: Condition {
+            expr: "age < 20".to_string(),
+        },
+        outcome: Outcome {
+            key: "youth".to_string(),
+            value: serde_json::json!(true),
+        },
+    };
+    let engine = RuleEngine::new(vec![rule]);
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(15));
+    let outcomes = engine.evaluate(&input).unwrap();
+    assert_eq!(outcomes.len(), 1);
+    assert_eq!(outcomes[0].key, "youth");
+    assert_eq!(outcomes[0].value, serde_json::json!(true));
+}
