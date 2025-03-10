@@ -1,0 +1,17 @@
+use dynarule::{Config, RuleEngine};
+use std::collections::HashMap;
+
+fn main() {
+    let json = r#"
+    [
+        {"condition": {"expr": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
+    ]
+    "#;
+    let rules = dynarule::parser::parse_rules(json).unwrap();
+    let engine = RuleEngine::new(rules);
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(25));
+    let outcomes = engine.evaluate(&input).unwrap();
+    println!("Outcomes: {:?}", outcomes);
+}
