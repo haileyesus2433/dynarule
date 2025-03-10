@@ -6,7 +6,7 @@ fn test_integration_from_file() {
     // Simulate a file by using a string
     let json = r#"
     [
-        {"condition": {"expr": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
+        {"condition": {"type": "Simple", "value": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
     ]
     "#;
     let rules = dynarule::parser::parse_rules(json).unwrap(); // Use parser directly for test

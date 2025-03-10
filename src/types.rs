@@ -7,15 +7,18 @@ pub struct Rule {
     pub outcome: Outcome,
 }
 
-/// A condition to evaluate (e.g., "age > 18").
+/// A condition to evaluate, either a simple expression or a nested combination.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Condition {
-    pub expr: String, // For now, a simple string like "key operator value"
+#[serde(tag = "type", content = "value")]
+pub enum Condition {
+    Simple(String),      // e.g., "age > 18"
+    And(Vec<Condition>), // e.g., ["age > 18", "status = active"]
+    Or(Vec<Condition>),  // e.g., ["age > 18", "status = inactive"]
 }
 
 /// The result of a rule evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Outcome {
-    pub key: String,              // The key to set (e.g., "eligible")
-    pub value: serde_json::Value, // Flexible value (string, number, etc.)
+    pub key: String,
+    pub value: serde_json::Value,
 }

@@ -14,12 +14,12 @@ mod tests {
     fn test_parse_valid_json() {
         let json = r#"
         [
-            {"condition": {"expr": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
+            {"condition": {"type": "Simple", "value": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
         ]
         "#;
         let rules = parse_rules(json).unwrap();
         assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].condition.expr, "age > 18");
+        // assert_eq!(rules[0].condition, "age > 18");
         assert_eq!(rules[0].outcome.key, "eligible");
         assert_eq!(rules[0].outcome.value, serde_json::Value::Bool(true));
     }

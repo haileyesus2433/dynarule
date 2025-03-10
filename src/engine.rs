@@ -1,5 +1,5 @@
 use crate::error::RuleEngineError;
-use crate::types::{Outcome, Rule};
+use crate::types::{Condition, Outcome, Rule};
 use std::collections::HashMap;
 
 pub struct RuleEngine {
@@ -25,65 +25,85 @@ impl RuleEngine {
     }
 
     fn evaluate_condition(
-        condition: &crate::types::Condition,
+        condition: &Condition,
         input: &HashMap<String, serde_json::Value>,
     ) -> Result<bool, RuleEngineError> {
-        let parts: Vec<&str> = condition.expr.split_whitespace().collect();
-        if parts.len() != 3 {
-            return Err(RuleEngineError::EvaluationError(
-                "Condition must have 3 parts: key operator value".to_string(),
-            ));
-        }
-        let key = parts[0];
-        let operator = parts[1];
-        let value = parts[2];
+        match condition {
+            Condition::Simple(expr) => {
+                let parts: Vec<&str> = expr.split_whitespace().collect();
+                if parts.len() != 3 {
+                    return Err(RuleEngineError::EvaluationError(
+                        "Simple condition must have 3 parts: key operator value".to_string(),
+                    ));
+                }
+                let key = parts[0];
+                let operator = parts[1];
+                let value = parts[2];
 
-        let input_value = input
-            .get(key)
-            .ok_or_else(|| RuleEngineError::EvaluationError(format!("Key '{}' not found", key)))?;
+                let input_value = input.get(key).ok_or_else(|| {
+                    RuleEngineError::EvaluationError(format!("Key '{}' not found", key))
+                })?;
 
-        match operator {
-            ">" => {
-                let input_num = input_value.as_f64().ok_or_else(|| {
-                    RuleEngineError::EvaluationError("Value must be a number".to_string())
-                })?;
-                let cond_num = value
-                    .parse::<f64>()
-                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                Ok(input_num > cond_num)
+                match operator {
+                    ">" => {
+                        let input_num = input_value.as_f64().ok_or_else(|| {
+                            RuleEngineError::EvaluationError("Value must be a number".to_string())
+                        })?;
+                        let cond_num = value
+                            .parse::<f64>()
+                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                        Ok(input_num > cond_num)
+                    }
+                    "<" => {
+                        let input_num = input_value.as_f64().ok_or_else(|| {
+                            RuleEngineError::EvaluationError("Value must be a number".to_string())
+                        })?;
+                        let cond_num = value
+                            .parse::<f64>()
+                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                        Ok(input_num < cond_num)
+                    }
+                    ">=" => {
+                        let input_num = input_value.as_f64().ok_or_else(|| {
+                            RuleEngineError::EvaluationError("Value must be a number".to_string())
+                        })?;
+                        let cond_num = value
+                            .parse::<f64>()
+                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                        Ok(input_num >= cond_num)
+                    }
+                    "<=" => {
+                        let input_num = input_value.as_f64().ok_or_else(|| {
+                            RuleEngineError::EvaluationError("Value must be a number".to_string())
+                        })?;
+                        let cond_num = value
+                            .parse::<f64>()
+                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
+                        Ok(input_num <= cond_num)
+                    }
+                    "=" => Ok(input_value == &serde_json::Value::String(value.to_string())),
+                    _ => Err(RuleEngineError::EvaluationError(format!(
+                        "Unsupported operator '{}'",
+                        operator
+                    ))),
+                }
             }
-            "<" => {
-                let input_num = input_value.as_f64().ok_or_else(|| {
-                    RuleEngineError::EvaluationError("Value must be a number".to_string())
-                })?;
-                let cond_num = value
-                    .parse::<f64>()
-                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                Ok(input_num < cond_num)
+            Condition::And(conditions) => {
+                for cond in conditions {
+                    if !Self::evaluate_condition(cond, input)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
             }
-            ">=" => {
-                let input_num = input_value.as_f64().ok_or_else(|| {
-                    RuleEngineError::EvaluationError("Value must be a number".to_string())
-                })?;
-                let cond_num = value
-                    .parse::<f64>()
-                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                Ok(input_num >= cond_num)
+            Condition::Or(conditions) => {
+                for cond in conditions {
+                    if Self::evaluate_condition(cond, input)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
             }
-            "<=" => {
-                let input_num = input_value.as_f64().ok_or_else(|| {
-                    RuleEngineError::EvaluationError("Value must be a number".to_string())
-                })?;
-                let cond_num = value
-                    .parse::<f64>()
-                    .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                Ok(input_num <= cond_num)
-            }
-            "=" => Ok(input_value == &serde_json::Value::String(value.to_string())),
-            _ => Err(RuleEngineError::EvaluationError(format!(
-                "Unsupported operator '{}'",
-                operator
-            ))),
         }
     }
 }
