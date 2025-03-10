@@ -6,8 +6,9 @@ type CustomFunction =
     Box<dyn Fn(&serde_json::Value) -> Result<serde_json::Value, RuleEngineError> + Send + Sync>;
 
 pub struct RuleEngine {
-    rules: Vec<Rule>,
+    pub rules: Vec<Rule>,
     custom_functions: HashMap<String, CustomFunction>,
+    stop_on_first_match: bool, // New option
 }
 
 impl RuleEngine {
@@ -15,6 +16,7 @@ impl RuleEngine {
         RuleEngine {
             rules,
             custom_functions: HashMap::new(),
+            stop_on_first_match: false, // Default: evaluate all rules
         }
     }
 
@@ -30,17 +32,32 @@ impl RuleEngine {
         self
     }
 
+    pub fn with_stop_on_first_match(mut self, value: bool) -> Self {
+        self.stop_on_first_match = value;
+        self
+    }
+
     pub fn evaluate(
         &self,
         input: &HashMap<String, serde_json::Value>,
     ) -> Result<Vec<Outcome>, RuleEngineError> {
         let mut outcomes = Vec::new();
-        for rule in &self.rules {
+        let mut sorted_rules = self.rules.clone();
+        sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority)); // Higher priority first
+
+        for rule in &sorted_rules {
             if Self::evaluate_condition(&rule.condition, input, &self.custom_functions)? {
                 outcomes.push(rule.outcome.clone());
+                if self.stop_on_first_match {
+                    break;
+                }
             }
         }
         Ok(outcomes)
+    }
+
+    pub fn update_rules(&mut self, rules: Vec<Rule>) {
+        self.rules = rules;
     }
 
     fn evaluate_condition(

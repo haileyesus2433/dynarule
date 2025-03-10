@@ -10,6 +10,7 @@ fn test_basic_evaluation_greater_than() {
             key: "eligible".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -34,6 +35,7 @@ fn test_basic_evaluation_equals() {
             key: "access".to_string(),
             value: serde_json::json!("granted"),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -58,6 +60,7 @@ fn test_missing_input_key() {
             key: "eligible".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -77,6 +80,7 @@ fn test_basic_evaluation_less_than() {
             key: "youth".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -99,6 +103,7 @@ fn test_nested_and_condition() {
             key: "access".to_string(),
             value: serde_json::json!("granted"),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -128,6 +133,7 @@ fn test_nested_or_condition() {
             key: "eligible".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -148,6 +154,7 @@ fn test_custom_function() {
             key: "valid".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]).with_function("length", |value| {
         let len = value
@@ -178,6 +185,7 @@ fn test_unknown_function() {
             key: "valid".to_string(),
             value: serde_json::json!(true),
         },
+        ..Default::default()
     };
     let engine = RuleEngine::new(vec![rule]);
 
@@ -185,4 +193,60 @@ fn test_unknown_function() {
     input.insert("name".to_string(), serde_json::json!("Alex"));
     let result = engine.evaluate(&input);
     assert!(matches!(result, Err(RuleEngineError::EvaluationError(_))));
+}
+
+#[test]
+fn test_rule_priority() {
+    let low_priority_rule = Rule {
+        condition: Condition::Simple("age > 10".to_string()),
+        outcome: Outcome {
+            key: "access".to_string(),
+            value: serde_json::json!("low"),
+        },
+        priority: 1,
+    };
+    let high_priority_rule = Rule {
+        condition: Condition::Simple("age > 18".to_string()),
+        outcome: Outcome {
+            key: "access".to_string(),
+            value: serde_json::json!("high"),
+        },
+        priority: 10,
+    };
+    let engine =
+        RuleEngine::new(vec![low_priority_rule, high_priority_rule]).with_stop_on_first_match(true);
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(25));
+    let outcomes = engine.evaluate(&input).unwrap();
+    assert_eq!(outcomes.len(), 1); // Only one outcome due to stop_on_first_match
+    assert_eq!(outcomes[0].value, serde_json::json!("high")); // Higher priority wins
+}
+
+#[test]
+fn test_no_stop_on_first_match() {
+    let low_priority_rule = Rule {
+        condition: Condition::Simple("age > 10".to_string()),
+        outcome: Outcome {
+            key: "access".to_string(),
+            value: serde_json::json!("low"),
+        },
+        priority: 1,
+    };
+    let high_priority_rule = Rule {
+        condition: Condition::Simple("age > 18".to_string()),
+        outcome: Outcome {
+            key: "access".to_string(),
+            value: serde_json::json!("high"),
+        },
+        priority: 10,
+    };
+    let engine = RuleEngine::new(vec![high_priority_rule, low_priority_rule]); // Default: no stop
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(25));
+    let outcomes = engine.evaluate(&input).unwrap();
+    assert_eq!(outcomes.len(), 2); // Both rules match
+    assert_eq!(outcomes[0].value, serde_json::json!("high")); // Higher priority first
+    assert_eq!(outcomes[1].value, serde_json::json!("low"));
 }

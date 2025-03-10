@@ -1,0 +1,13 @@
+[
+  {
+    "condition": {
+      "type": "And",
+      "value": [
+        { "type": "Simple", "value": "age > 18" },
+        { "type": "Simple", "value": "length(name) > 3" }
+      ]
+    },
+    "outcome": { "key": "access", "value": "premium" },
+    "priority": 10
+  }
+]
