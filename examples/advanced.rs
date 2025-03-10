@@ -8,7 +8,7 @@ fn main() {
         condition: Condition::Simple("age > 10".to_string()),
         outcome: Outcome {
             key: "access".to_string(),
-            value: serde_json::json!("basic"),
+            value: serde_json::json!("Welcome, {{name}}!"),
         },
         priority: 1,
     }];
@@ -24,22 +24,22 @@ fn main() {
 
     let mut input = HashMap::new();
     input.insert("age".to_string(), serde_json::json!(25));
+    input.insert("name".to_string(), serde_json::json!("Haile"));
     let outcomes = engine.evaluate(&input).unwrap();
-    println!("Initial outcomes: {:?}", outcomes);
+    println!("Initial outcomes: {:?}", outcomes); // "Welcome, Haile!"
 
-    // Simulate writing new rules to a file
     let new_rules_json = r#"
     [
         {"condition": {"type": "And", "value": [
             {"type": "Simple", "value": "age > 18"},
             {"type": "Simple", "value": "length(name) > 3"}
-        ]}, "outcome": {"key": "access", "value": "premium"}, "priority": 10}
+        ]}, "outcome": {"key": "access", "value": "Premium user: {{name}}"}, "priority": 10}
     ]
     "#;
     fs::write("rules.json", new_rules_json).unwrap();
     Config::reload_from_file("rules.json", &mut engine).unwrap();
 
-    input.insert("name".to_string(), serde_json::json!("Alexander"));
+    input.insert("name".to_string(), serde_json::json!("Haileyesus"));
     let outcomes = engine.evaluate(&input).unwrap();
-    println!("Updated outcomes: {:?}", outcomes); // Should print "access": "premium"
+    println!("Updated outcomes: {:?}", outcomes); // "Premium user: Haileyesus"
 }

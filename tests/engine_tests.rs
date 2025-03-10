@@ -190,7 +190,7 @@ fn test_unknown_function() {
     let engine = RuleEngine::new(vec![rule]);
 
     let mut input = HashMap::new();
-    input.insert("name".to_string(), serde_json::json!("Alex"));
+    input.insert("name".to_string(), serde_json::json!("Haile"));
     let result = engine.evaluate(&input);
     assert!(matches!(result, Err(RuleEngineError::EvaluationError(_))));
 }
@@ -249,4 +249,43 @@ fn test_no_stop_on_first_match() {
     assert_eq!(outcomes.len(), 2); // Both rules match
     assert_eq!(outcomes[0].value, serde_json::json!("high")); // Higher priority first
     assert_eq!(outcomes[1].value, serde_json::json!("low"));
+}
+
+#[test]
+fn test_templated_outcome() {
+    let rule = Rule {
+        condition: Condition::Simple("age > 18".to_string()),
+        outcome: Outcome {
+            key: "message".to_string(),
+            value: serde_json::json!("Hello, {{name}}!"),
+        },
+        ..Default::default()
+    };
+    let engine = RuleEngine::new(vec![rule]);
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(25));
+    input.insert("name".to_string(), serde_json::json!("Haile"));
+    let outcomes = engine.evaluate(&input).unwrap();
+    assert_eq!(outcomes.len(), 1);
+    assert_eq!(outcomes[0].key, "message");
+    assert_eq!(outcomes[0].value, serde_json::json!("Hello, Haile!"));
+}
+
+#[test]
+fn test_missing_template_key() {
+    let rule = Rule {
+        condition: Condition::Simple("age > 18".to_string()),
+        outcome: Outcome {
+            key: "message".to_string(),
+            value: serde_json::json!("Hello, {{unknown}}!"),
+        },
+        ..Default::default()
+    };
+    let engine = RuleEngine::new(vec![rule]);
+
+    let mut input = HashMap::new();
+    input.insert("age".to_string(), serde_json::json!(25));
+    let result = engine.evaluate(&input);
+    assert!(matches!(result, Err(RuleEngineError::EvaluationError(_))));
 }

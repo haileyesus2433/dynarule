@@ -6,7 +6,7 @@ pub struct Rule {
     pub condition: Condition,
     pub outcome: Outcome,
     #[serde(default = "default_priority")]
-    pub priority: i32, // Higher number = higher priority
+    pub priority: i32,
 }
 
 impl Default for Rule {
@@ -17,13 +17,13 @@ impl Default for Rule {
                 key: String::new(),
                 value: serde_json::Value::Null,
             },
-            priority: default_priority(), // Default to 0
+            priority: default_priority(),
         }
     }
 }
 
 fn default_priority() -> i32 {
-    0 // Default priority if not specified
+    0
 }
 
 /// A condition to evaluate, either a simple expression or a nested combination.
@@ -35,9 +35,9 @@ pub enum Condition {
     Or(Vec<Condition>),
 }
 
-/// The result of a rule evaluation.
+/// The result of a rule evaluation, supporting templated values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Outcome {
     pub key: String,
-    pub value: serde_json::Value,
+    pub value: serde_json::Value, // Can be a template like "Hello, {{name}}!"
 }

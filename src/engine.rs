@@ -1,6 +1,8 @@
 use crate::error::RuleEngineError;
 use crate::types::{Condition, Outcome, Rule};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use tera::{Context, Tera};
 
 type CustomFunction =
     Box<dyn Fn(&serde_json::Value) -> Result<serde_json::Value, RuleEngineError> + Send + Sync>;
@@ -8,15 +10,19 @@ type CustomFunction =
 pub struct RuleEngine {
     pub rules: Vec<Rule>,
     custom_functions: HashMap<String, CustomFunction>,
-    stop_on_first_match: bool, // New option
+    stop_on_first_match: bool,
+    tera: RefCell<Tera>, // Wrap in RefCell for interior mutability
 }
 
 impl RuleEngine {
     pub fn new(rules: Vec<Rule>) -> Self {
+        let mut tera = Tera::default();
+        tera.autoescape_on(vec![]); // Disable auto-escaping
         RuleEngine {
             rules,
             custom_functions: HashMap::new(),
-            stop_on_first_match: false, // Default: evaluate all rules
+            stop_on_first_match: false,
+            tera: RefCell::new(tera),
         }
     }
 
@@ -37,17 +43,26 @@ impl RuleEngine {
         self
     }
 
+    pub fn update_rules(&mut self, rules: Vec<Rule>) {
+        self.rules = rules;
+    }
+
     pub fn evaluate(
         &self,
         input: &HashMap<String, serde_json::Value>,
     ) -> Result<Vec<Outcome>, RuleEngineError> {
         let mut outcomes = Vec::new();
         let mut sorted_rules = self.rules.clone();
-        sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority)); // Higher priority first
+        sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+        let context = Self::create_tera_context(input)?;
 
         for rule in &sorted_rules {
             if Self::evaluate_condition(&rule.condition, input, &self.custom_functions)? {
-                outcomes.push(rule.outcome.clone());
+                // Borrow tera mutably here
+                let processed_outcome =
+                    Self::process_outcome(&rule.outcome, &mut self.tera.borrow_mut(), &context)?;
+                outcomes.push(processed_outcome);
                 if self.stop_on_first_match {
                     break;
                 }
@@ -56,8 +71,32 @@ impl RuleEngine {
         Ok(outcomes)
     }
 
-    pub fn update_rules(&mut self, rules: Vec<Rule>) {
-        self.rules = rules;
+    fn create_tera_context(
+        input: &HashMap<String, serde_json::Value>,
+    ) -> Result<Context, RuleEngineError> {
+        let mut context = Context::new();
+        for (key, value) in input {
+            context.insert(key, value);
+        }
+        Ok(context)
+    }
+
+    fn process_outcome(
+        outcome: &Outcome,
+        tera: &mut Tera,
+        context: &Context,
+    ) -> Result<Outcome, RuleEngineError> {
+        if let serde_json::Value::String(template) = &outcome.value {
+            let rendered = tera.render_str(template, context).map_err(|e| {
+                RuleEngineError::EvaluationError(format!("Template rendering failed: {}", e))
+            })?;
+            Ok(Outcome {
+                key: outcome.key.clone(),
+                value: serde_json::Value::String(rendered),
+            })
+        } else {
+            Ok(outcome.clone())
+        }
     }
 
     fn evaluate_condition(
