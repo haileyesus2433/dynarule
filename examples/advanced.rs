@@ -8,7 +8,7 @@ fn main() {
             Condition::Simple("age > 18".to_string()),
             Condition::Or(vec![
                 Condition::Simple("status = active".to_string()),
-                Condition::Simple("role = admin".to_string()),
+                Condition::Simple("length(name) > 3".to_string()),
             ]),
         ]),
         outcome: Outcome {
@@ -16,12 +16,20 @@ fn main() {
             value: serde_json::json!("granted"),
         },
     };
-    let engine = RuleEngine::new(vec![rule]);
+    let engine = RuleEngine::new(vec![rule]).with_function("length", |value| {
+        let len = value
+            .as_str()
+            .ok_or_else(|| {
+                dynarule::RuleEngineError::EvaluationError("Expected string".to_string())
+            })?
+            .len();
+        Ok(serde_json::Value::Number(serde_json::Number::from(len)))
+    });
 
     let mut input = HashMap::new();
     input.insert("age".to_string(), serde_json::json!(25));
     input.insert("status".to_string(), serde_json::json!("inactive"));
-    input.insert("role".to_string(), serde_json::json!("admin"));
+    input.insert("name".to_string(), serde_json::json!("Alexander")); // Length > 3
     let outcomes = engine.evaluate(&input).unwrap();
     println!("Outcomes: {:?}", outcomes); // Should print "access": "granted"
 }
