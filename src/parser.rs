@@ -1,5 +1,5 @@
 use crate::error::RuleEngineError;
-use crate::types::{Condition, Outcome, Rule};
+use crate::types::Rule;
 
 pub fn parse_rules(json: &str) -> Result<Vec<Rule>, RuleEngineError> {
     serde_json::from_str(json)

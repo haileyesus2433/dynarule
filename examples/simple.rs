@@ -1,4 +1,4 @@
-use dynarule::{Config, RuleEngine};
+use dynarule::RuleEngine;
 use std::collections::HashMap;
 
 fn main() {

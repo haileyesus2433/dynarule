@@ -1,4 +1,4 @@
-use dynarule::{Condition, Rule, parser};
+use dynarule::{Condition, parser};
 
 #[test]
 fn test_parse_valid_json() {
