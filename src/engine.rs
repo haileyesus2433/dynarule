@@ -17,7 +17,7 @@ pub struct RuleEngine {
 impl RuleEngine {
     pub fn new(rules: Vec<Rule>) -> Self {
         let mut tera = Tera::default();
-        tera.autoescape_on(vec![]); // Disable auto-escaping
+        tera.autoescape_on(vec![]);
         RuleEngine {
             rules,
             custom_functions: HashMap::new(),
@@ -50,18 +50,21 @@ impl RuleEngine {
     pub fn evaluate(
         &self,
         input: &HashMap<String, serde_json::Value>,
+        context: &HashMap<String, serde_json::Value>,
     ) -> Result<Vec<Outcome>, RuleEngineError> {
         let mut outcomes = Vec::new();
         let mut sorted_rules = self.rules.clone();
         sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        let context = Self::create_tera_context(input)?;
+        let tera_context = Self::create_tera_context(input, context)?;
 
         for rule in &sorted_rules {
-            if Self::evaluate_condition(&rule.condition, input, &self.custom_functions)? {
-                // Borrow tera mutably here
-                let processed_outcome =
-                    Self::process_outcome(&rule.outcome, &mut self.tera.borrow_mut(), &context)?;
+            if Self::evaluate_condition(&rule.condition, input, context, &self.custom_functions)? {
+                let processed_outcome = Self::process_outcome(
+                    &rule.outcome,
+                    &mut self.tera.borrow_mut(),
+                    &tera_context,
+                )?;
                 outcomes.push(processed_outcome);
                 if self.stop_on_first_match {
                     break;
@@ -73,12 +76,16 @@ impl RuleEngine {
 
     fn create_tera_context(
         input: &HashMap<String, serde_json::Value>,
+        context: &HashMap<String, serde_json::Value>,
     ) -> Result<Context, RuleEngineError> {
-        let mut context = Context::new();
+        let mut tera_context = Context::new();
         for (key, value) in input {
-            context.insert(key, value);
+            tera_context.insert(key, value);
         }
-        Ok(context)
+        for (key, value) in context {
+            tera_context.insert(key, value);
+        }
+        Ok(tera_context)
     }
 
     fn process_outcome(
@@ -102,6 +109,7 @@ impl RuleEngine {
     fn evaluate_condition(
         condition: &Condition,
         input: &HashMap<String, serde_json::Value>,
+        context: &HashMap<String, serde_json::Value>,
         custom_functions: &HashMap<String, CustomFunction>,
     ) -> Result<bool, RuleEngineError> {
         match condition {
@@ -120,9 +128,12 @@ impl RuleEngine {
                 let input_value = if left.contains('(') && left.ends_with(')') {
                     let func_name = left[..left.find('(').unwrap()].to_string();
                     let arg_key = &left[left.find('(').unwrap() + 1..left.len() - 1];
-                    let arg_value = input.get(arg_key).ok_or_else(|| {
-                        RuleEngineError::EvaluationError(format!("Key '{}' not found", arg_key))
-                    })?;
+                    let arg_value = input
+                        .get(arg_key)
+                        .or_else(|| context.get(arg_key))
+                        .ok_or_else(|| {
+                            RuleEngineError::EvaluationError(format!("Key '{}' not found", arg_key))
+                        })?;
                     if let Some(func) = custom_functions.get(&func_name) {
                         func(arg_value)?
                     } else {
@@ -134,6 +145,7 @@ impl RuleEngine {
                 } else {
                     input
                         .get(left)
+                        .or_else(|| context.get(left))
                         .ok_or_else(|| {
                             RuleEngineError::EvaluationError(format!("Key '{}' not found", left))
                         })?
@@ -141,41 +153,37 @@ impl RuleEngine {
                 };
 
                 match operator {
-                    ">" => {
-                        let input_num = input_value.as_f64().ok_or_else(|| {
-                            RuleEngineError::EvaluationError("Value must be a number".to_string())
+                    ">" | "<" | ">=" | "<=" => {
+                        // Try to convert input_value to f64, handling both numbers and strings
+                        let input_num = match input_value {
+                            serde_json::Value::Number(n) => n.as_f64().ok_or_else(|| {
+                                RuleEngineError::EvaluationError("Invalid number".to_string())
+                            })?,
+                            serde_json::Value::String(s) => s.parse::<f64>().map_err(|e| {
+                                RuleEngineError::EvaluationError(format!(
+                                    "Cannot parse '{}' as number: {}",
+                                    s, e
+                                ))
+                            })?,
+                            _ => {
+                                return Err(RuleEngineError::EvaluationError(
+                                    "Value must be a number or numeric string".to_string(),
+                                ));
+                            }
+                        };
+                        let cond_num = right.parse::<f64>().map_err(|e| {
+                            RuleEngineError::EvaluationError(format!(
+                                "Right-hand side '{}' must be a number: {}",
+                                right, e
+                            ))
                         })?;
-                        let cond_num = right
-                            .parse::<f64>()
-                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                        Ok(input_num > cond_num)
-                    }
-                    "<" => {
-                        let input_num = input_value.as_f64().ok_or_else(|| {
-                            RuleEngineError::EvaluationError("Value must be a number".to_string())
-                        })?;
-                        let cond_num = right
-                            .parse::<f64>()
-                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                        Ok(input_num < cond_num)
-                    }
-                    ">=" => {
-                        let input_num = input_value.as_f64().ok_or_else(|| {
-                            RuleEngineError::EvaluationError("Value must be a number".to_string())
-                        })?;
-                        let cond_num = right
-                            .parse::<f64>()
-                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                        Ok(input_num >= cond_num)
-                    }
-                    "<=" => {
-                        let input_num = input_value.as_f64().ok_or_else(|| {
-                            RuleEngineError::EvaluationError("Value must be a number".to_string())
-                        })?;
-                        let cond_num = right
-                            .parse::<f64>()
-                            .map_err(|e| RuleEngineError::EvaluationError(e.to_string()))?;
-                        Ok(input_num <= cond_num)
+                        match operator {
+                            ">" => Ok(input_num > cond_num),
+                            "<" => Ok(input_num < cond_num),
+                            ">=" => Ok(input_num >= cond_num),
+                            "<=" => Ok(input_num <= cond_num),
+                            _ => unreachable!(),
+                        }
                     }
                     "=" => Ok(input_value == serde_json::Value::String(right.to_string())),
                     _ => Err(RuleEngineError::EvaluationError(format!(
@@ -186,7 +194,7 @@ impl RuleEngine {
             }
             Condition::And(conditions) => {
                 for cond in conditions {
-                    if !Self::evaluate_condition(cond, input, custom_functions)? {
+                    if !Self::evaluate_condition(cond, input, context, custom_functions)? {
                         return Ok(false);
                     }
                 }
@@ -194,7 +202,7 @@ impl RuleEngine {
             }
             Condition::Or(conditions) => {
                 for cond in conditions {
-                    if Self::evaluate_condition(cond, input, custom_functions)? {
+                    if Self::evaluate_condition(cond, input, context, custom_functions)? {
                         return Ok(true);
                     }
                 }

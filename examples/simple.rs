@@ -12,6 +12,8 @@ fn main() {
 
     let mut input = HashMap::new();
     input.insert("age".to_string(), serde_json::json!(25));
-    let outcomes = engine.evaluate(&input).unwrap();
+    let context = HashMap::new(); // Empty context for this test
+
+    let outcomes = engine.evaluate(&input, &context).unwrap();
     println!("Outcomes: {:?}", outcomes);
 }

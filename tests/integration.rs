@@ -14,7 +14,9 @@ fn test_integration_from_file() {
 
     let mut input = HashMap::new();
     input.insert("age".to_string(), serde_json::json!(25));
-    let outcomes = engine.evaluate(&input).unwrap();
+    let context = HashMap::new(); // Empty context for this test
+
+    let outcomes = engine.evaluate(&input, &context).unwrap();
     assert_eq!(outcomes.len(), 1);
     assert_eq!(outcomes[0].key, "eligible");
     assert_eq!(outcomes[0].value, serde_json::json!(true));
@@ -32,7 +34,9 @@ fn test_dynamic_rule_update() {
 
     let mut input = HashMap::new();
     input.insert("age".to_string(), serde_json::json!(25));
-    let outcomes = engine.evaluate(&input).unwrap();
+    let context = HashMap::new(); // Empty context for this test
+
+    let outcomes = engine.evaluate(&input, &context).unwrap();
     assert_eq!(outcomes.len(), 1);
 
     let new_json = r#"
@@ -42,6 +46,6 @@ fn test_dynamic_rule_update() {
     "#;
     let new_rules = dynarule::parser::parse_rules(new_json).unwrap();
     engine.update_rules(new_rules);
-    let outcomes = engine.evaluate(&input).unwrap();
+    let outcomes = engine.evaluate(&input, &context).unwrap();
     assert_eq!(outcomes.len(), 0); // Age 25 no longer matches
 }
