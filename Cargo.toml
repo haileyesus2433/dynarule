@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/haileyesus2433/dynarule" 
 homepage =  "https://github.com/haileyesus2433/dynarule" 
 keywords = ["rule-engine", "json", "logic", "configurable"]
-categories = ["data-processing", "utilities"]
+categories = ["config", "template-engine"]
 readme = "README.md"
 
 [dependencies]
