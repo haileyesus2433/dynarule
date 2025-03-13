@@ -1,5 +1,4 @@
 use dynarule::{Condition, Config, Outcome, Rule, RuleEngine};
-use serde_json;
 use std::collections::HashMap;
 use std::fs;
 
