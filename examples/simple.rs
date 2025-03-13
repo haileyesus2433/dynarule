@@ -4,7 +4,10 @@ use std::collections::HashMap;
 fn main() {
     let json = r#"
     [
-        {"condition": {"expr": "age > 18"}, "outcome": {"key": "eligible", "value": true}}
+        {
+            "condition": {"type": "Simple", "value": "age > 18"},
+            "outcome": {"key": "eligible", "value": true}
+        }
     ]
     "#;
     let rules = dynarule::parser::parse_rules(json).unwrap();
