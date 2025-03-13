@@ -5,9 +5,11 @@ edition = "2024"
 description = "A flexible, JSON-based rule engine for dynamic condition evaluation"
 authors = ["Haileyesus Haileyesusbe@gmail.com"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/haileyesus2433/dynarule"  # Update with your repo if applicable
+repository = "https://github.com/haileyesus2433/dynarule" 
+homepage =  "https://github.com/haileyesus2433/dynarule" 
 keywords = ["rule-engine", "json", "logic", "configurable"]
 categories = ["data-processing", "utilities"]
+readme = "README.md"
 
 [dependencies]
 serde = {version="1.0.219",features = ["derive"]}
