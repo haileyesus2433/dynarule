@@ -1,0 +1,48 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-test:
+    name: Build, Test, Lint, and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Rust toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      # Cache dependencies to speed up builds
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Build the project
+      - name: Build
+        run: cargo build --verbose
+
+      # Run tests
+      - name: Run tests
+        run: cargo test --verbose
+
+      # Run Clippy for linting
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      # Check formatting
+      - name: Check formatting
+        run: cargo fmt --all -- --check
